@@ -67,7 +67,7 @@ class Import {
             $dtPublished = $postHtml->find('time.dt-published', 0);
             $publishedon = 0;
             if ($dtPublished && $dtPublished->hasAttribute('datetime')) {
-                $publishedon = strtotime($dtPublished->getAttribute['datetime']);
+                $publishedon = strtotime($dtPublished->getAttribute('datetime'));
             }
             $published = $publishedon > 0;
             $createdon = time();
