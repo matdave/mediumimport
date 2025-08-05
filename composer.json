@@ -1,6 +1,7 @@
 {
     "type": "library",
     "version": "0.0.1",
+    "license": "MIT",
     "name": "matdave/mediumimport",
     "description": "Import Medium Blog into MODX",
     "autoload": {
