@@ -6,6 +6,11 @@ use voku\helper\HtmlDomParser;
 
 class Import {
     private $modx;
+    private $log = false;
+    private $print = false;
+
+    private $onSave;
+    private $onBeforeSave;
 
     public function __construct($corePath, $configKey = 'config')
     {
@@ -15,6 +20,26 @@ class Import {
         }
 
         $this->loadMODX($corePath, $configKey);
+    }
+
+    public function enableLogging()
+    {
+        $this->log = true;
+    }
+
+    public function enablePrinting()
+    {
+        $this->print = true;
+    }
+
+    public function callbackOnSave(callable $callback)
+    {
+        $this->onSave = $callback;
+    }
+
+    public function callbackBeforeSave(callable $callback)
+    {
+        $this->onBeforeSave = $callback;
     }
 
     private function loadMODX($corePath, $configKey)
@@ -38,7 +63,7 @@ class Import {
         $this->modx->initialize();
     }
 
-    public function import($exportPath, $templateId = 0, $parentId = 0) {
+    public function import($exportPath, $templateId = 0, $parentId = 0, $overwrite = false) {
         if (!file_exists($exportPath)) {
             throw new \Exception('Could not find export folder: '.$exportPath);
         }
@@ -57,8 +82,25 @@ class Import {
         foreach ($posts as $post) {
             $alias = basename($post, '.html');
             $checkResource = $this->modx->getObject('modResource', ['alias' => $alias, 'parent' => $parentId, 'template' => $templateId]);
-            if ($checkResource) {
+            if ($checkResource && !$overwrite) {
+                if ($this->log) {
+                    $this->modx->log(1, 'Found existing post: '.$alias);
+                }
+                if ($this->print) {
+                    print "Found existing post: " . $alias . "\n";
+                }
                 continue;
+            }
+            if ($checkResource && $overwrite) {
+                if ($this->log) {
+                    $this->modx->log(1, 'Overwriting post: '.$alias);
+                }
+                if ($this->print) {
+                    print "Overwriting post: " . $alias . "\n";
+                }
+                $resource = $checkResource;
+            } else {
+                $resource = $this->modx->newObject('modResource');
             }
             $postHtml = HtmlDomParser::file_get_html($post);
             $pagetitle = $postHtml->find('title', 0)->plaintext;
@@ -71,7 +113,6 @@ class Import {
             }
             $published = $publishedon > 0;
             $createdon = time();
-            $resource = $this->modx->newObject('modResource');
             $resource->fromArray([
                 'pagetitle' => $pagetitle,
                 'longtitle' => $longtitle,
@@ -87,10 +128,35 @@ class Import {
                 'publishedon' => $publishedon,
                 'context_key' => $parent->get('context_key'),
             ]);
+            if ($this->onBeforeSave) {
+                $onBeforeSave = call_user_func($this->onBeforeSave, $resource, $post);
+                if ($onBeforeSave === false) {
+                    if ($this->log) {
+                        $this->modx->log(1, 'OnBeforeSave failed for post: '.$alias);
+                    }
+                    if ($this->print) {
+                        print "OnBeforeSave failed for post: " . $alias . "\n";
+                    }
+                    continue;
+                }
+            }
             if ($resource->save()) {
-                $this->modx->log(1, 'Imported post: '.$alias);
+                if ($this->onSave) {
+                    call_user_func($this->onSave, $resource, $post);
+                }
+                if ($this->log) {
+                    $this->modx->log(1, 'Imported post: '.$alias);
+                }
+                if ($this->print) {
+                    print "Imported post: " . $alias . "\n";
+                }
             } else {
-                $this->modx->log(1, 'Failed to import post: '.$alias);
+                if ($this->log) {
+                    $this->modx->log(1, 'Failed to import post: ' . $alias);
+                }
+                if ($this->print) {
+                    print "Failed to import post: " . $alias . "\n";
+                }
             }
         }
     }
