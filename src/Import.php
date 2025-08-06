@@ -80,7 +80,7 @@ class Import {
             throw new \Exception('Could not find parent resource: '.$parentId);
         }
         foreach ($posts as $post) {
-            $alias = basename($post, '.html');
+            $alias = $this->buildAlias($post);
             $checkResource = $this->modx->getObject('modResource', ['alias' => $alias, 'parent' => $parentId, 'template' => $templateId]);
             if ($checkResource && !$overwrite) {
                 if ($this->log) {
@@ -159,5 +159,15 @@ class Import {
                 }
             }
         }
+    }
+
+    private function buildAlias($post)
+    {
+        $alias = basename($post, '.html');
+        // remove draft_ from the front of the alias
+        $alias = preg_replace('/^draft_/', '', $alias);
+        // remove date from the front of the alias
+        $alias = preg_replace('/^(\d{4})-(\d{2})-(\d{2})_/', '', $alias);
+        return $alias;
     }
 }
